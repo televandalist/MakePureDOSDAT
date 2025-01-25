@@ -360,6 +360,19 @@ void XMLAppendEscaped(std::vector<Bit8u>& buf, size_t len, const char* str)
 		else buf.push_back((Bit8u)*str);
 }
 
+void AppendBase64(std::vector<Bit8u>& buf, const Bit8u* data, size_t size)
+{
+	static const char base64enc[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	for (const Bit8u *p = data, *pEnd = p + size; p < pEnd; p += 3)
+	{
+		unsigned n = (*p << 16) | (((p + 2) < pEnd) ? ((p[1] << 8) | p[2]) : (((p + 1) < pEnd) ? (p[1] << 8) : 0));
+		buf.push_back((Bit8u)base64enc[(n >> 18) & 63]);
+		buf.push_back((Bit8u)base64enc[(n >> 12) & 63]);
+		buf.push_back(((p + 1) < pEnd) ? (Bit8u)base64enc[(n >> 6) & 63] : (Bit8u)'=');
+		buf.push_back(((p + 2) < pEnd) ? (Bit8u)base64enc[n & 63] : (Bit8u)'=');
+	}
+}
+
 void ListCHDTracks(std::vector<Bit8u>& line, const Bit8u* chd_data, size_t chd_size)
 {
 	enum { CHD_V5_HEADER_SIZE = 124, CHD_V5_UNCOMPMAPENTRYBYTES = 4, CD_MAX_SECTOR_DATA = 2352, CD_MAX_SUBCODE_DATA = 96, CD_FRAME_SIZE = CD_MAX_SECTOR_DATA + CD_MAX_SUBCODE_DATA };
@@ -739,6 +752,12 @@ int main(int argc, char *argv[])
 				XMLAppendRaw(line, 3, "\">\n");
 				ListCHDTracks(line, mem_ptr, (size_t)decomp_size);
 				XMLAppendRaw(line, 9, "		</rom>\n");
+			}
+			else if (filename_len == 7 && !strncasecmp(name, "DOS.YML", 7))
+			{
+				XMLAppendRaw(line, 8, "\" data=\"");
+				AppendBase64(line, mem_ptr, (size_t)decomp_size);
+				XMLAppendRaw(line, 4, "\"/>\n");
 			}
 			else
 			{
