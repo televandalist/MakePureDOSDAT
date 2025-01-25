@@ -409,7 +409,7 @@ void ListCHDTracks(std::vector<Bit8u>& line, const Bit8u* chd_data, size_t chd_s
 	Bit32u track_frame = 0;
 	for (Bit64u metaentry_offset = metaoffset, metaentry_next; metaentry_offset != 0; metaentry_offset = metaentry_next)
 	{
-		char mt_type[32], mt_subtype[32];
+		char mt_type[32], mt_subtype[32], mt_pgtype[32];
 		if (chd_size < metaentry_offset + METADATA_HEADER_SIZE) goto chderr;
 		const Bit8u* raw_meta_header = chd_data + metaentry_offset;
 		Bit32u metaentry_metatag = ZIP_READ_BE32(&raw_meta_header[0]);
@@ -421,8 +421,8 @@ void ListCHDTracks(std::vector<Bit8u>& line, const Bit8u* chd_data, size_t chd_s
 
 		int mt_track_no = 0, mt_frames = 0, mt_pregap = 0;
 		if (sscanf(meta,
-			(metaentry_metatag == CDROM_TRACK_METADATA2_TAG ? "TRACK:%d TYPE:%30s SUBTYPE:%30s FRAMES:%d PREGAP:%d" : "TRACK:%d TYPE:%30s SUBTYPE:%30s FRAMES:%d"),
-			&mt_track_no, mt_type, mt_subtype, &mt_frames, &mt_pregap) < 4) continue;
+			(metaentry_metatag == CDROM_TRACK_METADATA2_TAG ? "TRACK:%d TYPE:%30s SUBTYPE:%30s FRAMES:%d PREGAP:%d PGTYPE:%30s" : "TRACK:%d TYPE:%30s SUBTYPE:%30s FRAMES:%d"),
+			&mt_track_no, mt_type, mt_subtype, &mt_frames, &mt_pregap, mt_pgtype) < 4) continue;
 
 		// In CHD files tracks are padded to a to a 4-sector boundary.
 		track_frame += ((CD_TRACK_PADDING - (track_frame % CD_TRACK_PADDING)) % CD_TRACK_PADDING);
@@ -457,8 +457,8 @@ void ListCHDTracks(std::vector<Bit8u>& line, const Bit8u* chd_data, size_t chd_s
 		FastMD5(track_data, (size_t)track_size, trackmd5);
 		SHA1(track_data, (size_t)track_size, tracksha1);
 
-		XMLAppendRawF(line, 200, "			<track number=\"%d\" type=\"%s\" frames=\"%d\" pregap=\"%d\" duration=\"%02d:%02d:%02d\" size=\"%u\"",
-			mt_track_no, mt_type, mt_frames, mt_pregap, (mt_frames/75/60), (mt_frames/75)%60, mt_frames%75, (Bit32u)track_size);
+		XMLAppendRawF(line, 200, "			<track number=\"%d\" type=\"%s\" frames=\"%d\" %spregap=\"%d\" duration=\"%02d:%02d:%02d\" size=\"%u\"",
+			mt_track_no, mt_type, mt_frames, ((mt_pregap && mt_pgtype[0] != 'V') ? "omitted_" : ""), mt_pregap, (mt_frames/75/60), (mt_frames/75)%60, mt_frames%75, (Bit32u)track_size);
 		XMLAppendRawF(line, 21, " crc=\"%08x\" md5=\"", trackcrc32);
 		for (int md5i = 0; md5i != 16; md5i++) XMLAppendRawF(line, 2, "%02x", trackmd5[md5i]);
 		XMLAppendRaw(line, 8, "\" sha1=\"");
